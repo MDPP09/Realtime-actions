@@ -5,6 +5,7 @@ import mediapipe as mp
 from PIL import Image
 import tempfile
 import tensorflow as tf
+import threading
 
 # Load your pre-trained model
 model = tf.keras.models.load_model('ActionModel.keras')
@@ -78,9 +79,6 @@ def extract_keypoints(results):
 
     keypoints_array = np.concatenate([pose_landmarks, face_landmarks, left_hand_landmarks, right_hand_landmarks])
 
-    # Debug statement to check the size of the keypoints_array
-    st.write(f"Size of keypoints array: {keypoints_array.size}")
-
     if keypoints_array.size < 1662:
         keypoints_array = np.concatenate([keypoints_array, np.zeros(1662 - keypoints_array.size)])
 
@@ -108,6 +106,7 @@ def process_webcam():
     threshold = 0.5
 
     cap = cv2.VideoCapture(0)  # Open the webcam
+    cap.set(cv2.CAP_PROP_FPS, 15)  # Reduce the frame rate
 
     stframe = st.empty()  # Placeholder for Streamlit image display
 
@@ -123,9 +122,6 @@ def process_webcam():
             keypoints = extract_keypoints(results)
             sequence.append(keypoints)
             sequence = sequence[-30:]
-
-            # Debug statement to check the length of the sequence
-            st.write(f"Current sequence length: {len(sequence)}")
 
             if len(sequence) == 30:
                 try:
@@ -203,9 +199,6 @@ def process_video(file):
             sequence.append(keypoints)
             sequence = sequence[-30:]
 
-            # Debug statement to check the length of the sequence
-            st.write(f"Current sequence length: {len(sequence)}")
-
             if len(sequence) == 30:
                 try:
                     res = model.predict(np.expand_dims(sequence, axis=0))[0]
@@ -236,26 +229,30 @@ def process_video(file):
         cv2.destroyAllWindows()
 
 # Streamlit UI
-st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action detection</h2>', unsafe_allow_html=True)
-st.sidebar.markdown('<p style="font-size:14px;">By revan</p>', unsafe_allow_html=True)
-st.sidebar.image('https://www.pngkey.com/png/full/233-2332677_image-500580-placeholder-transparent.png', use_column_width=True)
-
 st.title('Action Detection')
+st.sidebar.markdown('<h2 style="font-size:20px;">Realtime Action Detection</h2>', unsafe_allow_html=True)
+st.sidebar.markdown('<p style="font-size:14px;">By revan</p>', unsafe_allow_html=True)
+st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-universitas-gunadarma-logo-png.png', caption='Gunadarma', use_column_width=True)
 
-input_source = st.sidebar.selectbox("Choose Input Source", ["Webcam", "Image", "Video"])
+option = st.sidebar.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
 
-if input_source == "Webcam":
+if option == "Webcam":
     if st.sidebar.button("Start Webcam"):
-        process_webcam()
-elif input_source == "Image":
-    uploaded_file = st.sidebar.file_uploader("Upload an Image", type=["png", "jpg", "jpeg"])
+        # Run webcam processing in a separate thread
+        def run_webcam():
+            process_webcam()
+        thread = threading.Thread(target=run_webcam)
+        thread.start()
+
+elif option == "Upload Image":
+    uploaded_file = st.sidebar.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        image = np.array(image)
+        image = np.array(Image.open(uploaded_file))
         process_image(image)
-elif input_source == "Video":
-    uploaded_file = st.sidebar.file_uploader("Upload a Video", type=["mp4", "avi", "mov"])
+
+elif option == "Upload Video":
+    uploaded_file = st.sidebar.file_uploader("Choose a video...", type=["mp4", "mov", "avi", "mkv"])
     if uploaded_file is not None:
-        tfile = tempfile.NamedTemporaryFile(delete=False) 
-        tfile.write(uploaded_file.read())
-        process_video(tfile.name)
+        with tempfile.NamedTemporaryFile(delete=False) as temp_video:
+            temp_video.write(uploaded_file.read())
+            process_video(temp_video.name)
