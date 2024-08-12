@@ -104,50 +104,54 @@ def process_webcam():
     sentence = []
     threshold = 0.5
 
-    cap = cv2.VideoCapture(0)  # Open the webcam
+    st.write("### Please allow access to your webcam in the browser prompt.")
     
-    if not cap.isOpened():
-        st.error("Webcam not found. Please check your device.")
-        return
+    # Button to start the webcam
+    if st.button("Start Webcam"):
+        cap = cv2.VideoCapture(0)  # Open the webcam
+        
+        if not cap.isOpened():
+            st.error("Webcam not found. Please check your device or browser permissions.")
+            return
 
-    stframe = st.empty()  # Placeholder for Streamlit image display
+        stframe = st.empty()  # Placeholder for Streamlit image display
 
-    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                st.warning("Failed to retrieve frame. Closing webcam.")
-                break
+        with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    st.warning("Failed to retrieve frame. Closing webcam.")
+                    break
 
-            image, results = mediapipe_detection(frame, holistic)
-            draw_styled_landmarks(image, results)
+                image, results = mediapipe_detection(frame, holistic)
+                draw_styled_landmarks(image, results)
 
-            keypoints = extract_keypoints(results)
-            sequence.append(keypoints)
-            sequence = sequence[-30:]
+                keypoints = extract_keypoints(results)
+                sequence.append(keypoints)
+                sequence = sequence[-30:]
 
-            if len(sequence) == 30:
-                res = model.predict(np.expand_dims(sequence, axis=0))[0]
-                if res[np.argmax(res)] > threshold:
-                    if not sentence or actions[np.argmax(res)] != sentence[-1]:
-                        sentence.append(actions[np.argmax(res)])
+                if len(sequence) == 30:
+                    res = model.predict(np.expand_dims(sequence, axis=0))[0]
+                    if res[np.argmax(res)] > threshold:
+                        if not sentence or actions[np.argmax(res)] != sentence[-1]:
+                            sentence.append(actions[np.argmax(res)])
 
-                if len(sentence) > 5:
-                    sentence = sentence[-5:]
+                    if len(sentence) > 5:
+                        sentence = sentence[-5:]
 
-                detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
-                st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
-                image = prob_viz(res, actions, image, colors)
+                    detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
+                    st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
+                    image = prob_viz(res, actions, image, colors)
 
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            stframe.image(image_rgb, channels="RGB", use_column_width=True)
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+                stframe.image(image_rgb, channels="RGB", use_column_width=True)
 
-            # Display the detected actions in the sidebar
-            st.sidebar.subheader("Detection Results")
-            st.sidebar.write(' '.join(sentence))
+                # Display the detected actions in the sidebar
+                st.sidebar.subheader("Detection Results")
+                st.sidebar.write(' '.join(sentence))
 
-    cap.release()
-    cv2.destroyAllWindows()
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 def process_image(image):
