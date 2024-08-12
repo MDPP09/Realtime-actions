@@ -3,5 +3,5 @@ numpy
 opencv_python_headless==4.10.0.84
 Pillow==10.4.0
 streamlit==1.37.1
-streamlit_webrtc==0.47.7
+streamlit_webrtc
 tensorflow==2.17.0
