@@ -24,7 +24,6 @@ colors = [
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
-
 def mediapipe_detection(image, model):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image.flags.writeable = False
@@ -32,7 +31,6 @@ def mediapipe_detection(image, model):
     image.flags.writeable = True
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image, results
-
 
 def draw_styled_landmarks(image, results):
     if results.face_landmarks:
@@ -61,7 +59,6 @@ def draw_styled_landmarks(image, results):
             mp_holistic.HAND_CONNECTIONS
         )
 
-
 def extract_keypoints(results):
     def landmarks_to_array(landmarks):
         if landmarks is None:
@@ -84,7 +81,6 @@ def extract_keypoints(results):
 
     return keypoints_array
 
-
 def prob_viz(res, actions, input_frame, colors):
     output_frame = input_frame.copy()
     height, width, _ = output_frame.shape
@@ -99,13 +95,16 @@ def prob_viz(res, actions, input_frame, colors):
                     cv2.LINE_AA)
     return output_frame
 
-
 def process_webcam():
     sequence = []
     sentence = []
     threshold = 0.5
 
     cap = cv2.VideoCapture(0)  # Open the webcam
+    if not cap.isOpened():
+        st.error("Failed to open webcam.")
+        return
+
     cap.set(cv2.CAP_PROP_FPS, 15)  # Reduce the frame rate
 
     stframe = st.empty()  # Placeholder for Streamlit image display
@@ -114,6 +113,7 @@ def process_webcam():
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
+                st.error("Failed to grab frame.")
                 break
 
             image, results = mediapipe_detection(frame, holistic)
@@ -153,7 +153,6 @@ def process_webcam():
     cap.release()
     cv2.destroyAllWindows()
 
-
 def process_image(image):
     sequence = []
     threshold = 0.5
@@ -176,13 +175,15 @@ def process_image(image):
         except IndexError as e:
             st.error(f"IndexError occurred during model prediction: {str(e)}")
 
-
 def process_video(file):
     sequence = []
     sentence = []
     threshold = 0.5
 
     cap = cv2.VideoCapture(file)
+    if not cap.isOpened():
+        st.error("Failed to open video file.")
+        return
 
     stframe = st.empty()  # Placeholder for Streamlit image display
 
@@ -229,30 +230,26 @@ def process_video(file):
         cv2.destroyAllWindows()
 
 # Streamlit UI
-st.title('Action Detection')
-st.sidebar.markdown('<h2 style="font-size:20px;">Realtime Action Detection</h2>', unsafe_allow_html=True)
-st.sidebar.markdown('<p style="font-size:14px;">By revan</p>', unsafe_allow_html=True)
-st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-universitas-gunadarma-logo-png.png', caption='Gunadarma', use_column_width=True)
+st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action detection</h2>', unsafe_allow_html=True)
+st.sidebar.markdown('<h4 style="font-size:16px;">Choose an option</h4>', unsafe_allow_html=True)
+app_mode = st.sidebar.selectbox('Select Mode', ['Webcam', 'Image', 'Video'])
 
-option = st.sidebar.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
+if app_mode == 'Webcam':
+    st.sidebar.subheader("Webcam")
+    process_webcam()
 
-if option == "Webcam":
-    if st.sidebar.button("Start Webcam"):
-        # Run webcam processing in a separate thread
-        def run_webcam():
-            process_webcam()
-        thread = threading.Thread(target=run_webcam)
-        thread.start()
-
-elif option == "Upload Image":
-    uploaded_file = st.sidebar.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-    if uploaded_file is not None:
-        image = np.array(Image.open(uploaded_file))
+elif app_mode == 'Image':
+    st.sidebar.subheader("Upload Image")
+    uploaded_file = st.sidebar.file_uploader("Choose an image...", type="jpg")
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        image = np.array(image)
         process_image(image)
 
-elif option == "Upload Video":
-    uploaded_file = st.sidebar.file_uploader("Choose a video...", type=["mp4", "mov", "avi", "mkv"])
-    if uploaded_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_video:
-            temp_video.write(uploaded_file.read())
-            process_video(temp_video.name)
+elif app_mode == 'Video':
+    st.sidebar.subheader("Upload Video")
+    uploaded_file = st.sidebar.file_uploader("Choose a video...", type="mp4")
+    if uploaded_file:
+        tfile = tempfile.NamedTemporaryFile(delete=False)
+        tfile.write(uploaded_file.read())
+        process_video(tfile.name)
