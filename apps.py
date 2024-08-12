@@ -78,6 +78,9 @@ def extract_keypoints(results):
 
     keypoints_array = np.concatenate([pose_landmarks, face_landmarks, left_hand_landmarks, right_hand_landmarks])
 
+    # Debug statement to check the size of the keypoints_array
+    st.write(f"Size of keypoints array: {keypoints_array.size}")
+
     if keypoints_array.size < 1662:
         keypoints_array = np.concatenate([keypoints_array, np.zeros(1662 - keypoints_array.size)])
 
@@ -121,19 +124,25 @@ def process_webcam():
             sequence.append(keypoints)
             sequence = sequence[-30:]
 
+            # Debug statement to check the length of the sequence
+            st.write(f"Current sequence length: {len(sequence)}")
+
             if len(sequence) == 30:
-                res = model.predict(np.expand_dims(sequence, axis=0))[0]
-                if res[np.argmax(res)] > threshold:
-                    if not sentence or actions[np.argmax(res)] != sentence[-1]:
-                        sentence.append(actions[np.argmax(res)])
+                try:
+                    res = model.predict(np.expand_dims(sequence, axis=0))[0]
+                    if res[np.argmax(res)] > threshold:
+                        if not sentence or actions[np.argmax(res)] != sentence[-1]:
+                            sentence.append(actions[np.argmax(res)])
 
-                if len(sentence) > 5:
-                    sentence = sentence[-5:]
+                    if len(sentence) > 5:
+                        sentence = sentence[-5:]
 
-                detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
-                st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
+                    detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
+                    st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
-                image = prob_viz(res, actions, image, colors)
+                    image = prob_viz(res, actions, image, colors)
+                except IndexError as e:
+                    st.error(f"IndexError occurred during model prediction: {str(e)}")
 
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             stframe.image(image_rgb, channels="RGB", use_column_width=True)
@@ -161,12 +170,15 @@ def process_image(image):
         # Create a sequence of 30 frames with the same keypoints
         sequence = [keypoints] * 30
 
-        res = model.predict(np.expand_dims(sequence, axis=0))[0]
-        action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
+        try:
+            res = model.predict(np.expand_dims(sequence, axis=0))[0]
+            action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
 
-        image = prob_viz(res, actions, image, colors)
-        st.image(image, channels="RGB")
-        st.write(f"Detected Action: {action} ({res[np.argmax(res)]:.2f})")
+            image = prob_viz(res, actions, image, colors)
+            st.image(image, channels="RGB")
+            st.write(f"Detected Action: {action} ({res[np.argmax(res)]:.2f})")
+        except IndexError as e:
+            st.error(f"IndexError occurred during model prediction: {str(e)}")
 
 
 def process_video(file):
@@ -191,19 +203,25 @@ def process_video(file):
             sequence.append(keypoints)
             sequence = sequence[-30:]
 
+            # Debug statement to check the length of the sequence
+            st.write(f"Current sequence length: {len(sequence)}")
+
             if len(sequence) == 30:
-                res = model.predict(np.expand_dims(sequence, axis=0))[0]
-                if res[np.argmax(res)] > threshold:
-                    if not sentence or actions[np.argmax(res)] != sentence[-1]:
-                        sentence.append(actions[np.argmax(res)])
+                try:
+                    res = model.predict(np.expand_dims(sequence, axis=0))[0]
+                    if res[np.argmax(res)] > threshold:
+                        if not sentence or actions[np.argmax(res)] != sentence[-1]:
+                            sentence.append(actions[np.argmax(res)])
 
-                if len(sentence) > 5:
-                    sentence = sentence[-5:]
+                    if len(sentence) > 5:
+                        sentence = sentence[-5:]
 
-                detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
-                st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
+                    detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
+                    st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
-                image = prob_viz(res, actions, image, colors)
+                    image = prob_viz(res, actions, image, colors)
+                except IndexError as e:
+                    st.error(f"IndexError occurred during model prediction: {str(e)}")
 
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             stframe.image(image_rgb, channels="RGB", use_column_width=True)
@@ -220,23 +238,24 @@ def process_video(file):
 # Streamlit UI
 st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action detection</h2>', unsafe_allow_html=True)
 st.sidebar.markdown('<p style="font-size:14px;">By revan</p>', unsafe_allow_html=True)
-st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-universitas-gunadarma-logo-png.png', caption='Gunadarma', use_column_width=True)
+st.sidebar.image('https://www.pngkey.com/png/full/233-2332677_image-500580-placeholder-transparent.png', use_column_width=True)
 
-option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
+st.title('Action Detection')
 
-if option == "Webcam":
-    if st.button("Start Webcam"):
+input_source = st.sidebar.selectbox("Choose Input Source", ["Webcam", "Image", "Video"])
+
+if input_source == "Webcam":
+    if st.sidebar.button("Start Webcam"):
         process_webcam()
-
-elif option == "Upload Image":
-    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+elif input_source == "Image":
+    uploaded_file = st.sidebar.file_uploader("Upload an Image", type=["png", "jpg", "jpeg"])
     if uploaded_file is not None:
-        image = np.array(Image.open(uploaded_file))
+        image = Image.open(uploaded_file)
+        image = np.array(image)
         process_image(image)
-
-elif option == "Upload Video":
-    uploaded_file = st.file_uploader("Choose a video...", type=["mp4", "mov", "avi", "mkv"])
+elif input_source == "Video":
+    uploaded_file = st.sidebar.file_uploader("Upload a Video", type=["mp4", "avi", "mov"])
     if uploaded_file is not None:
-        with tempfile.NamedTemporaryFile(delete=False) as temp_video:
-            temp_video.write(uploaded_file.read())
-            process_video(temp_video.name)
+        tfile = tempfile.NamedTemporaryFile(delete=False) 
+        tfile.write(uploaded_file.read())
+        process_video(tfile.name)
