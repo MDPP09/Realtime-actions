@@ -1,10 +1,6 @@
 streamlit
 streamlit-webrtc
 opencv-python
-tensorflow
 mediapipe
+tensorflow
 numpy
-opencv-python-headless==4.8.1.78
-
-
-
