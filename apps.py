@@ -5,6 +5,7 @@ import mediapipe as mp
 from PIL import Image
 import tempfile
 import tensorflow as tf
+from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
 
 # Load your pre-trained model
 model = tf.keras.models.load_model('ActionModel.keras')
@@ -23,15 +24,13 @@ colors = [
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
-
-def mediapipe_detection(image, model):
+def mediapipe_detection(image, holistic):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image.flags.writeable = False
-    results = model.process(image)
+    results = holistic.process(image)
     image.flags.writeable = True
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     return image, results
-
 
 def draw_styled_landmarks(image, results):
     if results.face_landmarks:
@@ -60,7 +59,6 @@ def draw_styled_landmarks(image, results):
             mp_holistic.HAND_CONNECTIONS
         )
 
-
 def extract_keypoints(results):
     def landmarks_to_array(landmarks):
         if landmarks is None:
@@ -83,139 +81,34 @@ def extract_keypoints(results):
 
     return keypoints_array
 
+class VideoTransformer(VideoTransformerBase):
+    def __init__(self):
+        self.sequence = []
+        self.sentence = []
+        self.threshold = 0.5
 
-def prob_viz(res, actions, input_frame, colors):
-    output_frame = input_frame.copy()
-    height, width, _ = output_frame.shape
-    for num, prob in enumerate(res):
-        cv2.rectangle(output_frame, (0, 60 + num * 40), (int(prob * 150), 90 + num * 40), colors[num % len(colors)], -1)
-        cv2.putText(output_frame, f'{actions[num]}: {prob:.2f}',
-                    (10, 85 + num * 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6,
-                    (255, 255, 255),
-                    2,
-                    cv2.LINE_AA)
-    return output_frame
-
-
-def process_webcam():
-    sequence = []
-    sentence = []
-    threshold = 0.5
-
-    cap = cv2.VideoCapture(0)  # Open the webcam
-
-    stframe = st.empty()  # Placeholder for Streamlit image display
-
-    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            image, results = mediapipe_detection(frame, holistic)
-            draw_styled_landmarks(image, results)
-
-            keypoints = extract_keypoints(results)
-            sequence.append(keypoints)
-            sequence = sequence[-30:]
-
-            if len(sequence) == 30:
-                res = model.predict(np.expand_dims(sequence, axis=0))[0]
-                if res[np.argmax(res)] > threshold:
-                    if not sentence or actions[np.argmax(res)] != sentence[-1]:
-                        sentence.append(actions[np.argmax(res)])
-
-                if len(sentence) > 5:
-                    sentence = sentence[-5:]
-
-                detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
-                st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
-
-                image = prob_viz(res, actions, image, colors)
-
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            stframe.image(image_rgb, channels="RGB", use_column_width=True)
-
-            # Display the detected actions in the sidebar
-            st.sidebar.subheader("Detection Results")
-            st.sidebar.write(' '.join(sentence))
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-def process_image(image):
-    sequence = []
-    threshold = 0.5
-
-    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
-        image, results = mediapipe_detection(image, holistic)
+    def transform(self, frame):
+        image = frame.to_ndarray(format="bgr24")  # Convert frame to BGR
+        image, results = mediapipe_detection(image, mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5))
         draw_styled_landmarks(image, results)
+
         keypoints = extract_keypoints(results)
+        self.sequence.append(keypoints)
+        self.sequence = self.sequence[-30:]
 
-        # Create a sequence of 30 frames with the same keypoints
-        sequence = [keypoints] * 30
+        if len(self.sequence) == 30:
+            res = model.predict(np.expand_dims(self.sequence, axis=0))[0]
+            if res[np.argmax(res)] > self.threshold:
+                if not self.sentence or actions[np.argmax(res)] != self.sentence[-1]:
+                    self.sentence.append(actions[np.argmax(res)])
 
-        res = model.predict(np.expand_dims(sequence, axis=0))[0]
-        action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
+            if len(self.sentence) > 5:
+                self.sentence = self.sentence[-5:]
 
-        image = prob_viz(res, actions, image, colors)
-        st.image(image, channels="RGB")
-        st.write(f"Detected Action: {action} ({res[np.argmax(res)]:.2f})")
+            detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > self.threshold else "No Detection"
+            st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
-
-def process_video(file):
-    sequence = []
-    sentence = []
-    threshold = 0.5
-
-    cap = cv2.VideoCapture(file)
-
-    stframe = st.empty()  # Placeholder for Streamlit image display
-
-    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            image, results = mediapipe_detection(frame, holistic)
-            draw_styled_landmarks(image, results)
-
-            keypoints = extract_keypoints(results)
-            sequence.append(keypoints)
-            sequence = sequence[-30:]
-
-            if len(sequence) == 30:
-                res = model.predict(np.expand_dims(sequence, axis=0))[0]
-                if res[np.argmax(res)] > threshold:
-                    if not sentence or actions[np.argmax(res)] != sentence[-1]:
-                        sentence.append(actions[np.argmax(res)])
-
-                if len(sentence) > 5:
-                    sentence = sentence[-5:]
-
-                detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
-                st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
-
-                image = prob_viz(res, actions, image, colors)
-
-            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            stframe.image(image_rgb, channels="RGB", use_column_width=True)
-
-            # Display the detected actions in the sidebar
-            st.sidebar.subheader("Detection Results")
-            st.sidebar.write(' '.join(sentence))
-
-            if cv2.waitKey(10) & 0xFF == ord('q'):
-                break
-        cap.release()
-        cv2.destroyAllWindows()
+        return image
 
 # Streamlit UI
 st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action detection</h2>', unsafe_allow_html=True)
@@ -225,8 +118,7 @@ st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-univ
 option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
 
 if option == "Webcam":
-    if st.button("Start Webcam"):
-        process_webcam()
+    webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
 
 elif option == "Upload Image":
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
