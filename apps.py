@@ -105,9 +105,9 @@ def process_webcam():
     threshold = 0.5
 
     st.write("### Please allow access to your webcam in the browser prompt.")
-    
+
     # Button to start the webcam
-    if st.button("Start Webcam"):
+    if st.button("Start Webcam", key="start_webcam"):
         cap = cv2.VideoCapture(0)  # Open the webcam
         
         if not cap.isOpened():
@@ -117,11 +117,14 @@ def process_webcam():
         stframe = st.empty()  # Placeholder for Streamlit image display
 
         with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
-            while cap.isOpened():
+            while start_webcam:  # Ensure the correct logic to stop the loop
                 ret, frame = cap.read()
                 if not ret:
                     st.warning("Failed to retrieve frame. Closing webcam.")
                     break
+
+                # (proses sama seperti sebelumnya...)
+
 
                 image, results = mediapipe_detection(frame, holistic)
                 draw_styled_landmarks(image, results)
