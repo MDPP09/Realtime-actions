@@ -1,5 +1,8 @@
 import streamlit as st
 import numpy as np
+import cv2
+from PIL import Image
+import tempfile
 import mediapipe as mp
 import tensorflow as tf
 from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
@@ -28,10 +31,8 @@ class VideoTransformer(VideoTransformerBase):
         self.threshold = 0.5
 
     def transform(self, frame):
-        # Convert frame to the right format
         img = frame.to_ndarray(format="bgr")
 
-        # Perform MediaPipe Holistic model inference
         with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
             image, results = self.mediapipe_detection(img, holistic)
             self.draw_styled_landmarks(image, results)
@@ -121,18 +122,19 @@ st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-univ
 option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
 
 if option == "Webcam":
-    # Start the WebRTC stream
     webrtc_streamer(key="example", video_transformer=VideoTransformer)
 
 elif option == "Upload Image":
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file is not None:
         image = np.array(Image.open(uploaded_file))
-        process_image(image)
+        # Anda bisa menambahkan logika untuk memproses gambar di sini
+        st.image(image, caption='Uploaded Image.', use_column_width=True)
 
 elif option == "Upload Video":
     uploaded_file = st.file_uploader("Choose a video...", type=["mp4", "mov", "avi", "mkv"])
     if uploaded_file is not None:
         with tempfile.NamedTemporaryFile(delete=False) as temp_video:
             temp_video.write(uploaded_file.read())
-            process_video(temp_video.name)
+            # Anda bisa menambahkan logika untuk memproses video di sini
+            st.video(temp_video.name)
