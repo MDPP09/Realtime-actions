@@ -110,9 +110,25 @@ class VideoTransformer(VideoTransformerBase):
 
         return image
 
+def process_image(image):
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
+        image, results = mediapipe_detection(image_rgb, holistic)
+        draw_styled_landmarks(image, results)
+        keypoints = extract_keypoints(results)
+
+        # Create a sequence of 30 frames with the same keypoints
+        sequence = [keypoints] * 30
+
+        res = model.predict(np.expand_dims(sequence, axis=0))[0]
+        action = actions[np.argmax(res)] if res[np.argmax(res)] > 0.5 else "No Detection"
+
+        st.image(image, channels="BGR")
+        st.write(f"Detected Action: {action} ({res[np.argmax(res)]:.2f})")
+
 # Streamlit UI
-st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action detection</h2>', unsafe_allow_html=True)
-st.sidebar.markdown('<p style="font-size:14px;">By revan</p>', unsafe_allow_html=True)
+st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action Detection</h2>', unsafe_allow_html=True)
+st.sidebar.markdown('<p style="font-size:14px;">By Revan</p>', unsafe_allow_html=True)
 st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-universitas-gunadarma-logo-png.png', caption='Gunadarma', use_column_width=True)
 
 option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
