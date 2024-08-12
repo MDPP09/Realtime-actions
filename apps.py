@@ -105,6 +105,10 @@ def process_webcam():
     threshold = 0.5
 
     cap = cv2.VideoCapture(0)  # Open the webcam
+    
+    if not cap.isOpened():
+        st.error("Webcam not found. Please check your device.")
+        return
 
     stframe = st.empty()  # Placeholder for Streamlit image display
 
@@ -112,6 +116,7 @@ def process_webcam():
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
+                st.warning("Failed to retrieve frame. Closing webcam.")
                 break
 
             image, results = mediapipe_detection(frame, holistic)
@@ -132,7 +137,6 @@ def process_webcam():
 
                 detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
                 st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
-
                 image = prob_viz(res, actions, image, colors)
 
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -141,9 +145,6 @@ def process_webcam():
             # Display the detected actions in the sidebar
             st.sidebar.subheader("Detection Results")
             st.sidebar.write(' '.join(sentence))
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
 
     cap.release()
     cv2.destroyAllWindows()
