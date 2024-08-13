@@ -7,13 +7,24 @@ import tempfile
 import tensorflow as tf
 from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
 
+# Load your pre-trained model once
 @st.cache_resource
 def load_model():
     return tf.keras.models.load_model('ActionModel.keras')
 
 model = load_model()
+
+# Define the actions
 actions = ['HALO', 'SEHAT', 'TERIMAKASIH', 'NAMA', 'KAMUUGANTENG', 'WAHKEREN', 'SAMA-SAMA']
 
+# Colors for visualization
+colors = [
+    (245, 117, 16), (117, 245, 16), (16, 117, 245),
+    (245, 16, 117), (16, 245, 117), (117, 16, 245),
+    (245, 245, 16)
+]
+
+# MediaPipe model
 mp_holistic = mp.solutions.holistic
 mp_drawing = mp.solutions.drawing_utils
 
@@ -27,13 +38,30 @@ def mediapipe_detection(image, holistic):
 
 def draw_styled_landmarks(image, results):
     if results.face_landmarks:
-        mp_drawing.draw_landmarks(image, results.face_landmarks, mp_holistic.FACEMESH_TESSELATION)
+        mp_drawing.draw_landmarks(
+            image,
+            results.face_landmarks,
+            mp_holistic.FACEMESH_TESSELATION,
+            landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1)
+        )
     if results.pose_landmarks:
-        mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_holistic.POSE_CONNECTIONS)
+        mp_drawing.draw_landmarks(
+            image,
+            results.pose_landmarks,
+            mp_holistic.POSE_CONNECTIONS
+        )
     if results.left_hand_landmarks:
-        mp_drawing.draw_landmarks(image, results.left_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+        mp_drawing.draw_landmarks(
+            image,
+            results.left_hand_landmarks,
+            mp_holistic.HAND_CONNECTIONS
+        )
     if results.right_hand_landmarks:
-        mp_drawing.draw_landmarks(image, results.right_hand_landmarks, mp_holistic.HAND_CONNECTIONS)
+        mp_drawing.draw_landmarks(
+            image,
+            results.right_hand_landmarks,
+            mp_holistic.HAND_CONNECTIONS
+        )
 
 def extract_keypoints(results):
     def landmarks_to_array(landmarks):
@@ -61,8 +89,8 @@ class VideoTransformer(VideoTransformerBase):
     def __init__(self):
         self.sequence = []
         self.sentence = []
-        self.threshold = 0.7  # Adjusted threshold
-        
+        self.threshold = 0.5
+
     def transform(self, frame):
         image = frame.to_ndarray(format="bgr24")
         image, results = mediapipe_detection(image, mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5))
@@ -74,9 +102,6 @@ class VideoTransformer(VideoTransformerBase):
 
         if len(self.sequence) == 30:
             res = model.predict(np.expand_dims(self.sequence, axis=0))[0]
-            
-            print(f"Model prediction: {res}, Confidence: {res[np.argmax(res)]}")  # Debugging line
-            
             if res[np.argmax(res)] > self.threshold:
                 if not self.sentence or actions[np.argmax(res)] != self.sentence[-1]:
                     self.sentence.append(actions[np.argmax(res)])
@@ -92,7 +117,7 @@ class VideoTransformer(VideoTransformerBase):
 def process_video(file):
     sequence = []
     sentence = []
-    threshold = 0.7  # Adjusted threshold
+    threshold = 0.7
 
     cap = cv2.VideoCapture(file)
 
@@ -111,9 +136,6 @@ def process_video(file):
 
             if len(sequence) == 30:
                 res = model.predict(np.expand_dims(sequence, axis=0))[0]
-                
-                print(f"Model prediction for video: {res}, Confidence: {res[np.argmax(res)]}")  # Debugging line
-                
                 if res[np.argmax(res)] > threshold:
                     if not sentence or actions[np.argmax(res)] != sentence[-1]:
                         sentence.append(actions[np.argmax(res)])
@@ -126,6 +148,8 @@ def process_video(file):
 
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             st.image(image_rgb, channels="RGB")
+
+            # Display the detected actions in the sidebar
             st.sidebar.subheader("Detection Results")
             st.sidebar.write(' '.join(sentence))
 
@@ -138,17 +162,16 @@ def process_image(image):
         draw_styled_landmarks(image, results)
         keypoints = extract_keypoints(results)
 
+        # Create a sequence of 30 frames with the same keypoints
         sequence = [keypoints] * 30
 
-        print(f"Keypoints for image: {keypoints}")  # Debugging line
-
         res = model.predict(np.expand_dims(sequence, axis=0))[0]
-        print(f"Model prediction for image: {res}, Confidence: {res[np.argmax(res)]}")  # Debugging line
+        action = actions[np.argmax(res)] if res[np.argmax(res)] > 0.5 else "No Detection"
 
-        action = actions[np.argmax(res)] if res[np.argmax(res)] > 0.7 else "No Detection"
         st.image(image, channels="BGR")
         st.write(f"Detected Action: {action} ({res[np.argmax(res)]:.2f})")
 
+# Streamlit UI
 st.sidebar.markdown('<h2 style="font-size:20px;">Realtime-Action Detection</h2>', unsafe_allow_html=True)
 st.sidebar.markdown('<p style="font-size:14px;">By Revan</p>', unsafe_allow_html=True)
 st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-universitas-gunadarma-logo-png.png', caption='Gunadarma', use_column_width=True)
@@ -169,3 +192,4 @@ elif option == "Upload Video":
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(uploaded_video.read())
             process_video(temp_file.name)
+ 
