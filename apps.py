@@ -109,12 +109,12 @@ class VideoTransformer(VideoTransformerBase):
             st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
         return image
-def process_webcam(self):
+def process_webcam():
     sequence = []
     sentence = []
     threshold = 0.5
 
-    cap = cv2.VideoCapture(self)
+    cap = cv2.VideoCapture(0)
 
     with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
         while cap.isOpened():
@@ -215,7 +215,7 @@ st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-univ
 option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
 
 if option == "Webcam":
-    webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+    process_webcam()
     
 
 elif option == "Upload Image":
