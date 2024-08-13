@@ -109,6 +109,46 @@ class VideoTransformer(VideoTransformerBase):
             st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
         return image
+def process_webcam(self):
+    sequence = []
+    sentence = []
+    threshold = 0.5
+
+    cap = cv2.VideoCapture(self)
+
+    with mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5) as holistic:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            image, results = mediapipe_detection(frame, holistic)
+            draw_styled_landmarks(image, results)
+
+            keypoints = extract_keypoints(results)
+            sequence.append(keypoints)
+            sequence = sequence[-30:]
+
+            if len(sequence) == 30:
+                res = model.predict(np.expand_dims(sequence, axis=0))[0]
+                if res[np.argmax(res)] > threshold:
+                    if not sentence or actions[np.argmax(res)] != sentence[-1]:
+                        sentence.append(actions[np.argmax(res)])
+
+                if len(sentence) > 5:
+                    sentence = sentence[-5:]
+
+                detected_action = actions[np.argmax(res)] if res[np.argmax(res)] > threshold else "No Detection"
+                st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
+
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            st.image(image_rgb, channels="RGB")
+
+            # Display the detected actions in the sidebar
+            st.sidebar.subheader("Detection Results")
+            st.sidebar.write(' '.join(sentence))
+
+    cap.release()
 
 def process_video(file):
     sequence = []
@@ -176,6 +216,7 @@ option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Vi
 
 if option == "Webcam":
     webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+    process_webcam(webrtc_streamer)
 
 elif option == "Upload Image":
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
