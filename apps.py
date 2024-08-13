@@ -215,7 +215,7 @@ st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-univ
 option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
 
 if option == "Webcam":
-    process_webcam()
+       webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
     
 
 elif option == "Upload Image":
