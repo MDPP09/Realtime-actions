@@ -102,6 +102,8 @@ class VideoTransformer(VideoTransformerBase):
 
         if len(self.sequence) == 30:
             res = model.predict(np.expand_dims(self.sequence, axis=0))[0]
+            print(f"Model prediction: {res}")  # Debugging line to check prediction
+
             if res[np.argmax(res)] > self.threshold:
                 if not self.sentence or actions[np.argmax(res)] != self.sentence[-1]:
                     self.sentence.append(actions[np.argmax(res)])
@@ -136,6 +138,8 @@ def process_video(file):
 
             if len(sequence) == 30:
                 res = model.predict(np.expand_dims(sequence, axis=0))[0]
+                print(f"Model prediction: {res}")  # Debugging line to check prediction
+
                 if res[np.argmax(res)] > threshold:
                     if not sentence or actions[np.argmax(res)] != sentence[-1]:
                         sentence.append(actions[np.argmax(res)])
@@ -165,9 +169,13 @@ def process_image(image):
         # Create a sequence of 30 frames with the same keypoints
         sequence = [keypoints] * 30
 
-        res = model.predict(np.expand_dims(sequence, axis=0))[0]
-        action = actions[np.argmax(res)] if res[np.argmax(res)] > 0.5 else "No Detection"
+        # Log keypoints to inspect
+        print(f"Keypoints: {keypoints}")
 
+        res = model.predict(np.expand_dims(sequence, axis=0))[0]
+        print(f"Model prediction: {res}")
+
+        action = actions[np.argmax(res)] if res[np.argmax(res)] > 0.5 else "No Detection"
         st.image(image, channels="BGR")
         st.write(f"Detected Action: {action} ({res[np.argmax(res)]:.2f})")
 
