@@ -81,13 +81,13 @@ def extract_keypoints(results):
 
     return keypoints_array
 
-class VideoTransformer(VideoTransformerBase):
+class VideoProcessor(VideoProcessorBase):
     def __init__(self):
         self.sequence = []
         self.sentence = []
         self.threshold = 0.5
 
-    def transform(self, frame):
+    def recv(self, frame):
         image = frame.to_ndarray(format="bgr24")  # Convert frame to BGR
         image, results = mediapipe_detection(image, mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5))
         draw_styled_landmarks(image, results)
@@ -109,6 +109,7 @@ class VideoTransformer(VideoTransformerBase):
             st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
         return image
+
 def process_webcam():
     sequence = []
     sentence = []
@@ -215,7 +216,7 @@ st.sidebar.image('https://www.pngkey.com/png/detail/268-2686866_logo-gundar-univ
 option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Video"))
 
 if option == "Webcam":
-       webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+     webrtc_streamer(key="example", video_processor_factory=VideoProcessor)
     
 
 elif option == "Upload Image":
