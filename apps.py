@@ -88,7 +88,7 @@ class VideoTransformer(VideoTransformerBase):
         self.threshold = 0.5
 
     def transform(self, frame):
-        image = frame.to_ndarray(format="bgr24")
+        image = frame.to_ndarray(format="bgr24")  # Convert frame to BGR
         image, results = mediapipe_detection(image, mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5))
         draw_styled_landmarks(image, results)
 
@@ -97,12 +97,7 @@ class VideoTransformer(VideoTransformerBase):
         self.sequence = self.sequence[-30:]
 
         if len(self.sequence) == 30:
-            input_array = np.expand_dims(self.sequence, axis=0)
-            st.write(f"Input shape to model: {input_array.shape}")
-            
-            res = model.predict(input_array)[0]
-            st.write(f"Model output: {res}")
-
+            res = model.predict(np.expand_dims(self.sequence, axis=0))[0]
             if res[np.argmax(res)] > self.threshold:
                 if not self.sentence or actions[np.argmax(res)] != self.sentence[-1]:
                     self.sentence.append(actions[np.argmax(res)])
