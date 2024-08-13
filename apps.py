@@ -216,7 +216,7 @@ option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Vi
 
 if option == "Webcam":
     webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
-    process_webcam(webrtc_streamer)
+    
 
 elif option == "Upload Image":
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
