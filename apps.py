@@ -3,12 +3,15 @@ import cv2
 import numpy as np
 import mediapipe as mp
 from PIL import Image
-import tempfile
 import tensorflow as tf
 from streamlit_webrtc import VideoTransformerBase, webrtc_streamer
 
-# Load your pre-trained model
-model = tf.keras.models.load_model('ActionModel.keras')
+# Load your pre-trained model once
+@st.cache_resource
+def load_model():
+    return tf.keras.models.load_model('ActionModel.keras')
+
+model = load_model()
 
 # Define the actions
 actions = ['HALO', 'SEHAT', 'TERIMAKASIH', 'NAMA', 'KAMUUGANTENG', 'WAHKEREN', 'SAMA-SAMA']
@@ -88,7 +91,7 @@ class VideoTransformer(VideoTransformerBase):
         self.threshold = 0.5
 
     def transform(self, frame):
-        image = frame.to_ndarray(format="bgr24")  # Convert frame to BGR
+        image = frame.to_ndarray(format="bgr24")
         image, results = mediapipe_detection(image, mp_holistic.Holistic(min_detection_confidence=0.5, min_tracking_confidence=0.5))
         draw_styled_landmarks(image, results)
 
@@ -109,6 +112,7 @@ class VideoTransformer(VideoTransformerBase):
             st.write(f"Detected Action: {detected_action} ({res[np.argmax(res)]:.2f})")
 
         return image
+
 def process_video(file):
     sequence = []
     sentence = []
@@ -175,3 +179,15 @@ option = st.selectbox("Select Input Type", ("Webcam", "Upload Image", "Upload Vi
 
 if option == "Webcam":
     webrtc_streamer(key="example", video_transformer_factory=VideoTransformer)
+elif option == "Upload Image":
+    uploaded_image = st.file_uploader("Upload an image...", type=["jpg", "jpeg", "png"])
+    if uploaded_image is not None:
+        image = Image.open(uploaded_image)
+        image = np.array(image)
+        process_image(image)
+elif option == "Upload Video":
+    uploaded_video = st.file_uploader("Upload a video...", type=["mp4", "mov", "avi"])
+    if uploaded_video is not None:
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(uploaded_video.read())
+            process_video(temp_file.name)
