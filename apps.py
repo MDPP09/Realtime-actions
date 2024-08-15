@@ -15,7 +15,7 @@ def load_model():
 model = load_model()
 
 # Define the actions
-actions = ['HALO', 'SEHAT', 'TERIMAKASIH', 'NAMA', 'KAMUUGANTENG', 'WAHKEREN', 'SAMA-SAMA']
+actions = ['HALO', 'SEHAT', 'TERIMAKASIH']
 
 # Colors for visualization
 colors = [
